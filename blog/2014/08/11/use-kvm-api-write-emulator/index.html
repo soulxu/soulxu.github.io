@@ -9,8 +9,8 @@
   <meta name="author" content="Alex Xu">
 
   
-  <meta name="description" content="应Boss要求要开始写博客。当然这其实是好事，有人Push我还是好的。 这边文章来描述如何用KVM API来写一个Virtualizer的demo code, 也就是相当与Qemu，用来做设备模拟。
-此文是帮助想了解KVM原理已经Qemu原理的人 or Just for fun. &hellip;">
+  <meta name="description" content="这边文章来描述如何用KVM API来写一个Virtualizer的demo code, 也就是相当与Qemu，用来做设备模拟。
+此文是帮助想了解KVM原理已经Qemu原理的人 or Just for fun. 完整的Code在这里： https://github.com/soulxu/ &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -92,9 +92,7 @@
   </header>
 
 
-<div class="entry-content"><p>应Boss要求要开始写博客。当然这其实是好事，有人Push我还是好的。</p>
-
-<p>这边文章来描述如何用KVM API来写一个Virtualizer的demo code, 也就是相当与Qemu，用来做设备模拟。
+<div class="entry-content"><p>这边文章来描述如何用KVM API来写一个Virtualizer的demo code, 也就是相当与Qemu，用来做设备模拟。
 此文是帮助想了解KVM原理已经Qemu原理的人 or Just for fun.</p>
 
 <p>完整的Code在这里： <a href="https://github.com/soulxu/kvmsample">https://github.com/soulxu/kvmsample</a></p>
@@ -195,25 +193,42 @@
 
 <p>然后我们就开始创建一个vm，然后为其分配内存。</p>
 
-<p>kvm->vm_fd = ioctl(kvm->dev_fd, KVM_CREATE_VM, 0);
-创建一个虚拟机很简单，在kvm设备上执行这么一个ioctl即可，然后会得到新建的vm的文件描述，用来操作这个vm。</p>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_CREATE_VM</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
-<p>然后我们来分配内存，这里最重要的是struct kvm_userspace_memory_region这个数据结构。
-<code>c
-/* for KVM_SET_USER_MEMORY_REGION */
-struct kvm_userspace_memory_region {
-        __u32 slot;
-        __u32 flags;
-        __u64 guest_phys_addr;
-        __u64 memory_size; /* bytes */
-        __u64 userspace_addr; /* start of the userspace allocated memory */
-};
-</code>
-memory_size是guest的内存的大小。userspace_addr是你为其份分配的内存的起始地址，而guest_phys_addr则是这段内存映射到guest的什么物理内存地址。</p>
+
+<p>创建一个虚拟机很简单，在kvm设备上执行这么一个ioctl即可，然后会得到新建的vm的文件描述，用来操作这个vm。</p>
+
+<p>然后我们来分配内存，这里最重要的是struct kvm_userspace_memory_region这个数据结构。</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="cm">/* for KVM_SET_USER_MEMORY_REGION */</span>
+</span><span class='line'><span class="k">struct</span> <span class="n">kvm_userspace_memory_region</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">__u32</span> <span class="n">slot</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">__u32</span> <span class="n">flags</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">__u64</span> <span class="n">guest_phys_addr</span><span class="p">;</span>
+</span><span class='line'>        <span class="n">__u64</span> <span class="n">memory_size</span><span class="p">;</span> <span class="cm">/* bytes */</span>
+</span><span class='line'>        <span class="n">__u64</span> <span class="n">userspace_addr</span><span class="p">;</span> <span class="cm">/* start of the userspace allocated memory */</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>memory_size是guest的内存的大小。userspace_addr是你为其份分配的内存的起始地址，而guest_phys_addr则是这段内存映射到guest的什么物理内存地址。</p>
 
 <p>这里用mmap创建了一段匿名映射，并将地址置入userspace_addr。随后来告诉我们的vm这些信息：</p>
 
-<p>ioctl(kvm->vm_fd, KVM_SET_USER_MEMORY_REGION, &amp;(kvm->mem));</p>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span><span class="p">,</span> <span class="n">KVM_SET_USER_MEMORY_REGION</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">mem</span><span class="p">));</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
 
 <p>这里是来操作我们的vm了，不是kvm设备文件了。</p>
 
@@ -221,50 +236,89 @@ memory_size是guest的内存的大小。userspace_addr是你为其份分配的�
 这里所要注意的就是如何编译guest code，这里我们编译出来的是flat binary，不需要什么elf的封装。</p>
 
 <p>有了内存，下一步就是vcpu了，创建vcpu是在kvm_init_vcpu函数里。
-这里最重要的操作只有这个：
-vcpu->kvm_run_mmap_size = ioctl(kvm->dev_fd, KVM_GET_VCPU_MMAP_SIZE, 0);
-vcpu->kvm_run = mmap(NULL, vcpu->kvm_run_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->vcpu_fd, 0);</p>
+这里最重要的操作只有这个：</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_GET_VCPU_MMAP_SIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span><span class='line'><span class="p">...</span>
+</span><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span><span class="p">,</span> <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
 
 <p>struct kvm_run是保存vcpu状态的一个数据结构，稍后我们可以看到我们可以从这里得到当陷入后具体陷入原因。</p>
 
 <p>有了内存和vcpu就可以运行了：</p>
 
-<p>pthread_create(&amp;(kvm->vcpus->vcpu_thread), (const pthread_attr_t *)NULL, kvm->vcpus[i].vcpu_thread_func, kvm)</p>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_thread</span><span class="p">),</span> <span class="p">(</span><span class="k">const</span> <span class="kt">pthread_attr_t</span> <span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">vcpu_thread_func</span><span class="p">,</span> <span class="n">kvm</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
 
 <p>这里是另一个kvm基本概念了，一个vcpu就是一个线程。这里让我们为vcpu创建一个线程。</p>
 
 <p>最终我们到了最关键的部分了，就是这个vcpu线程。其实他就是一个循环。
 当循环开始的时候，我们让他执行guest code:</p>
 
-<p>ret = ioctl(kvm->vcpus->vcpu_fd, KVM_RUN, 0)</p>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ret</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="n">KVM_RUN</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
 
 <p>当执行这条语句后，guest code就开始执行了，这个函数就阻塞在这里了。直到something happened而且需要由hypervisor进行处理的时候这个函数才会返回。
 比如说I/O发生了，这个函数就会返回了，这里我们就需要通过struct kvm_run中得到具体的陷入原因。我们的guest只是做一些I/O port的操作，所以可以看到
 当退出原因是KVM_EXIT_IO时，我将guest的所写入的数据print出来。</p>
 
-<p>到这里这就是这个virtualizer的全部了. 如果你想体验一下，只需要执行make。
-:~/code/kvmsample$ make
-cc    -c -o main.o main.c
-gcc main.c -o kvmsample -lpthread
-as -32 test.S -o test.o
-ld -m elf_i386 &ndash;oformat binary -N -e _start -Ttext 0x10000 -o test.bin test.o</p>
+<p>到这里这就是这个virtualizer的全部了. 如果你想体验一下，只需要执行make。</p>
 
-<p>然后执行kvmsample
-$ ./kvmsample
-read size: 712288
-KVM start run
-KVM_EXIT_IO
-out port: 16, data: 0
-KVM start run
-KVM_EXIT_IO
-out port: 16, data: 1
-KVM start run
-KVM_EXIT_IO
-out port: 16, data: 2
-KVM start run
-KVM_EXIT_IO
-out port: 16, data: 3
-&hellip;.</p>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='sh'><span class='line'>:~/code/kvmsample<span class="nv">$ </span>make
+</span><span class='line'>cc    -c -o main.o main.c
+</span><span class='line'>gcc main.c -o kvmsample -lpthread
+</span><span class='line'>as -32 test.S -o test.o
+</span><span class='line'>ld -m elf_i386 --oformat binary -N -e _start -Ttext 0x10000 -o test.bin test.o
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>然后执行kvmsample</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='sh'><span class='line'><span class="nv">$ </span>./kvmsample
+</span><span class='line'><span class="nb">read </span>size: 712288
+</span><span class='line'>KVM start run
+</span><span class='line'>KVM_EXIT_IO
+</span><span class='line'>out port: 16, data: 0
+</span><span class='line'>KVM start run
+</span><span class='line'>KVM_EXIT_IO
+</span><span class='line'>out port: 16, data: 1
+</span><span class='line'>KVM start run
+</span><span class='line'>KVM_EXIT_IO
+</span><span class='line'>out port: 16, data: 2
+</span><span class='line'>KVM start run
+</span><span class='line'>KVM_EXIT_IO
+</span><span class='line'>out port: 16, data: 3
+</span><span class='line'>....
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
 
 <p>其实qemu里面的code也就是这样，你也可以在其中找到这个loop，只不过它被qemu内部的各种设备框架所隐藏起来了。</p>
 </div>
