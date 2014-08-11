@@ -4,7 +4,7 @@
   <title><![CDATA[Alex Xu]]></title>
   <link href="http://soulxu.github.io/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-08-11T11:13:59+08:00</updated>
+  <updated>2014-08-11T11:18:40+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu]]></name>
@@ -14,7 +14,7 @@
 
   
   <entry>
-    <title type="html"><![CDATA[use_kvm_api_write_emulator]]></title>
+    <title type="html"><![CDATA[使用KVM API实现Emulator demo]]></title>
     <link href="http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator/"/>
     <updated>2014-08-11T11:06:38+08:00</updated>
     <id>http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator</id>
@@ -32,8 +32,7 @@
 
 <p>首先来看看Guest有多简单。</p>
 
-<figure class='code'><figcaption><span>gas </span></figcaption>
-<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -42,15 +41,16 @@
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>.globl _start
-</span><span class='line'>    .code16
-</span><span class='line'>_start:
-</span><span class='line'>    xorw %ax, %ax
-</span><span class='line'>    
-</span><span class='line'>loop1:
-</span><span class='line'>    out %ax, $0x10
-</span><span class='line'>    inc %ax
-</span><span class='line'>    jmp loop1</span></code></pre></td></tr></table></div></figure>
+</pre></td><td class='code'><pre><code class='gas'><span class='line'><span class="na">.globl</span> <span class="no">_start</span>
+</span><span class='line'>    <span class="na">.code16</span>
+</span><span class='line'><span class="nl">_start:</span>
+</span><span class='line'>    <span class="nf">xorw</span> <span class="nv">%ax</span><span class="p">,</span> <span class="nv">%ax</span>
+</span><span class='line'>
+</span><span class='line'><span class="nl">loop1:</span>
+</span><span class='line'>    <span class="nf">out</span> <span class="nv">%ax</span><span class="p">,</span> <span class="no">$0x10</span>
+</span><span class='line'>    <span class="nf">inc</span> <span class="nv">%ax</span>
+</span><span class='line'>    <span class="nf">jmp</span> <span class="no">loop1</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
 <p>不熟悉汇编也没关系，我也不熟悉，但这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。</p>
@@ -59,8 +59,7 @@
 
 <p>我们先来看看main函数：</p>
 
-<figure class='code'><figcaption><span>c </span></figcaption>
-<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -86,32 +85,33 @@
 <span class='line-number'>24</span>
 <span class='line-number'>25</span>
 <span class='line-number'>26</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>int main(int argc, char **argv) {
-</span><span class='line'>    int ret = 0;
-</span><span class='line'>    struct kvm *kvm = kvm_init();
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kt">int</span> <span class="n">ret</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">struct</span> <span class="n">kvm</span> <span class="o">*</span><span class="n">kvm</span> <span class="o">=</span> <span class="n">kvm_init</span><span class="p">();</span>
 </span><span class='line'>
-</span><span class='line'>    if (kvm == NULL) {
-</span><span class='line'>        fprintf(stderr, "kvm init fauilt\n");
-</span><span class='line'>        return -1;
-</span><span class='line'>    }
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">kvm</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;kvm init fauilt</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'>    if (kvm_create_vm(kvm, RAM_SIZE) &lt; 0) {
-</span><span class='line'>        fprintf(stderr, "create vm fault\n");
-</span><span class='line'>        return -1;
-</span><span class='line'>    }
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">kvm_create_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">,</span> <span class="n">RAM_SIZE</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;create vm fault</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+</span><span class='line'>        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
 </span><span class='line'>
-</span><span class='line'>    load_binary(kvm);
+</span><span class='line'>    <span class="n">load_binary</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
 </span><span class='line'>
-</span><span class='line'>    // only support one vcpu now
-</span><span class='line'>    kvm->vcpu_number = 1;
-</span><span class='line'>    kvm->vcpus = kvm_init_vcpu(kvm, 0, kvm_cpu_thread);
+</span><span class='line'>    <span class="c1">// only support one vcpu now</span>
+</span><span class='line'>    <span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpu_number</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span> <span class="o">=</span> <span class="n">kvm_init_vcpu</span><span class="p">(</span><span class="n">kvm</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">kvm_cpu_thread</span><span class="p">);</span>
 </span><span class='line'>
-</span><span class='line'>    kvm_run_vm(kvm);
+</span><span class='line'>    <span class="n">kvm_run_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
 </span><span class='line'>
-</span><span class='line'>    kvm_clean_vm(kvm);
-</span><span class='line'>    kvm_clean_vcpu(kvm->vcpus);
-</span><span class='line'>    kvm_clean(kvm);
-</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>    <span class="n">kvm_clean_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">kvm_clean_vcpu</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="p">);</span>
+</span><span class='line'>    <span class="n">kvm_clean</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
 <p>这里正是第一个kvm基本原理： 一个虚拟机就是一个进程，我们的虚拟机从这个main函数开始</p>
