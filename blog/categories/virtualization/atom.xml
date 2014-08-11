@@ -4,7 +4,7 @@
   <title><![CDATA[Category: virtualization | Alex Xu]]></title>
   <link href="http://soulxu.github.io/blog/categories/virtualization/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-08-11T11:28:09+08:00</updated>
+  <updated>2014-08-11T12:00:29+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -23,7 +23,7 @@
 
 <p>完整的Code在这里： <a href="https://github.com/soulxu/kvmsample">https://github.com/soulxu/kvmsample</a></p>
 
-<p>这个code其实是很久以前写的，是有点想偷懒先拿个手里现成的东西开始写。</p>
+<p>这个code其实是很久以前写的，以前在team内部分享过，用来帮助大家理解kvm工作原理。现在既然要开始写code了，就用这个先来个开端。</p>
 
 <p>当然我不可能写一个完整的Qemu，只是写出Qemu中最基本的那些code。这个虚拟机只有一个VCPU和512000000字节内存(其实富裕了)
 可以进行一些I/O，当然这些I/O的结果只能导致一些print，没有实际模拟任何设备。所以所能执行的Guest也很简单。</p>
@@ -48,7 +48,7 @@
 </span><span class='line'>    <span class="nf">inc</span> <span class="nv">%ax</span>
 </span><span class='line'>    <span class="nf">jmp</span> <span class="no">loop1</span>
 </span></code></pre></td></tr></table></div></figure>
-不熟悉汇编也没关系，我也不熟悉，但这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。</p>
+不熟悉汇编也没关系，这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。目标就是让这个Guest跑起来了。</p>
 
 <p>我们的目标就是让这个Guest能执行起来。下面开始看我们虚拟机的code了。</p>
 
