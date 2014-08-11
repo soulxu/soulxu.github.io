@@ -1,4 +1,0 @@
-User-agent: *
-Disallow: 
-
-Sitemap: http://soulxu.github.io/sitemap.xml 
