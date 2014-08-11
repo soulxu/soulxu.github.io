@@ -5,7 +5,7 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Alex Xu</title>
+  <title>use_kvm_api_write_emulator - Alex Xu</title>
   <meta name="author" content="Alex Xu">
 
   
@@ -19,7 +19,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://soulxu.github.io/">
+  <link rel="canonical" href="http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <script src="/javascripts/modernizr-2.0.js"></script>
@@ -64,15 +64,12 @@
   <div id="body"   >
     <div id="main">
       <div id="content">
-	<div class="blog-index">
+	<div>
+<article class="hentry" role="article">
   
-  
-  
-    <article>
-      
   <header>
     
-      <h1 class="entry-title"><a href="/blog/2014/08/11/use-kvm-api-write-emulator/">Use_kvm_api_write_emulator</a></h1>
+      <h1 class="entry-title">Use_kvm_api_write_emulator</h1>
     
     
       <p class="meta">
@@ -95,7 +92,7 @@
   </header>
 
 
-  <div class="entry-content"><p>应Boss要求要开始写博客。当然这其实是好事，有人Push我还是好的。</p>
+<div class="entry-content"><p>应Boss要求要开始写博客。当然这其实是好事，有人Push我还是好的。</p>
 
 <p>这边文章来描述如何用KVM API来写一个Virtualizer的demo code, 也就是相当与Qemu，用来做设备模拟。
 此文是帮助想了解KVM原理已经Qemu原理的人 or Just for fun.</p>
@@ -109,7 +106,7 @@
 
 <p>首先来看看Guest有多简单。</p>
 
-<figure class='code'><figcaption><span>gas </span></figcaption>
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>gas </span></figcaption>
 <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
@@ -127,7 +124,7 @@
 </span><span class='line'>loop1:
 </span><span class='line'>    out %ax, $0x10
 </span><span class='line'>    inc %ax
-</span><span class='line'>    jmp loop1</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>    jmp loop1</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>不熟悉汇编也没关系，我也不熟悉，但这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。</p>
@@ -136,7 +133,7 @@
 
 <p>我们先来看看main函数：</p>
 
-<figure class='code'><figcaption><span>c </span></figcaption>
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>c </span></figcaption>
 <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
@@ -188,7 +185,7 @@
 </span><span class='line'>    kvm_clean_vm(kvm);
 </span><span class='line'>    kvm_clean_vcpu(kvm->vcpus);
 </span><span class='line'>    kvm_clean(kvm);
-</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>这里正是第一个kvm基本原理： 一个虚拟机就是一个进程，我们的虚拟机从这个main函数开始</p>
@@ -271,18 +268,52 @@ out port: 16, data: 3
 
 <p>其实qemu里面的code也就是这样，你也可以在其中找到这个loop，只不过它被qemu内部的各种设备框架所隐藏起来了。</p>
 </div>
+
+
+  <footer>
+    <p class="meta">
+      
   
+
+<span class="byline author vcard">Posted by <span class="fn">Alex Xu</span></span>
+
+      
+
+
+
+
+
+
+
+
   
 
 
-    </article>
+<time datetime="2014-08-11T11:06:38+08:00" pubdate data-updated="true"></time>
+      
+
+<span class="categories">
   
-  <div class="pagination">
+    <a class='category' href='/blog/categories/virtualization/'>virtualization</a>
+  
+</span>
+
+
+    </p>
     
-    <a href="/blog/archives">Blog Archives</a>
-    
-  </div>
+      <div class="sharing">
 </div>
+
+    
+    <p class="meta">
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
 <aside class="sidebar">
   
     <section>
@@ -297,9 +328,10 @@ out port: 16, data: 3
 </section>
 
 
-Included file &#8216;asides/googleplus.html&#8217; not found in _includes directory
+Included file 'asides/googleplus.html' not found in _includes directory
   
 </aside>
+
 
       </div>
     </div>
