@@ -4,7 +4,7 @@
   <title><![CDATA[Category: virtualization | Alex Xu]]></title>
   <link href="http://soulxu.github.io/blog/categories/virtualization/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-09-15T10:35:58+08:00</updated>
+  <updated>2014-09-15T10:37:37+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -29,122 +29,80 @@
 可以进行一些I/O，当然这些I/O的结果只能导致一些print，没有实际模拟任何设备。所以所能执行的Guest也很简单。</p>
 
 <p>首先来看看Guest有多简单。
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='gas'><span class='line'><span class="na">.globl</span> <span class="err">&lt;</span><span class="no">em</span><span class="err">&gt;</span><span class="no">start</span>
-</span><span class='line'>    <span class="na">.code16</span>
-</span><span class='line'><span class="err">&lt;/</span><span class="nf">em</span><span class="err">&gt;</span><span class="no">start</span><span class="p">:</span>
-</span><span class='line'>    <span class="nf">xorw</span> <span class="nv">%ax</span><span class="p">,</span> <span class="nv">%ax</span><span class="err">&lt;/</span><span class="no">p</span><span class="err">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="err">&lt;</span><span class="nf">p</span><span class="err">&gt;</span><span class="no">loop1</span><span class="p">:</span>
-</span><span class='line'>    <span class="nf">out</span> <span class="nv">%ax</span><span class="p">,</span> <span class="no">$0x10</span>
-</span><span class='line'>    <span class="nf">inc</span> <span class="nv">%ax</span>
-</span><span class='line'>    <span class="nf">jmp</span> <span class="no">loop1</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:gas %}
+.globl <em>start
+    .code16
+</em>start:
+    xorw %ax, %ax</p>
+
+<p>loop1:
+    out %ax, $0x10
+    inc %ax
+    jmp loop1
+{% endcodeblock %}
 不熟悉汇编也没关系，这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。目标就是让这个Guest跑起来了。</p>
 
 <p>我们的目标就是让这个Guest能执行起来。下面开始看我们虚拟机的code了。</p>
 
 <p>我们先来看看main函数：
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">&lt;</span><span class="n">em</span><span class="o">&gt;*</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="kt">int</span> <span class="n">ret</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">struct</span> <span class="n">kvm</span> <span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;</span><span class="n">kvm</span> <span class="o">=</span> <span class="n">kvm_init</span><span class="p">();</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">(</span><span class="n">kvm</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;kvm init fauilt</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="k">if</span> <span class="p">(</span><span class="n">kvm_create_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">,</span> <span class="n">RAM_SIZE</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">lt</span><span class="p">;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-</span><span class='line'>    <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;create vm fault</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
-</span><span class='line'>    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">load_binary</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// only support one vcpu now</span>
-</span><span class='line'><span class="n">kvm</span><span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span><span class="n">vcpu_number</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-</span><span class='line'><span class="n">kvm</span><span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span><span class="n">vcpus</span> <span class="o">=</span> <span class="n">kvm_init_vcpu</span><span class="p">(</span><span class="n">kvm</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">kvm_cpu_thread</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">kvm_run_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'><span class="n">kvm_clean_vm</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
-</span><span class='line'><span class="n">kvm_clean_vcpu</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span><span class="n">vcpus</span><span class="p">);</span>
-</span><span class='line'><span class="n">kvm_clean</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
-</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
-</span><span class='line'>
-</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+int main(int argc, char <em>*argv) {
+    int ret = 0;
+    struct kvm </em>kvm = kvm_init();</p>
+
+<pre><code>if (kvm == NULL) {
+    fprintf(stderr, "kvm init fauilt\n");
+    return -1;
+}
+
+if (kvm_create_vm(kvm, RAM_SIZE) &lt; 0) {
+    fprintf(stderr, "create vm fault\n");
+    return -1;
+}
+
+load_binary(kvm);
+
+// only support one vcpu now
+kvm-&gt;vcpu_number = 1;
+kvm-&gt;vcpus = kvm_init_vcpu(kvm, 0, kvm_cpu_thread);
+
+kvm_run_vm(kvm);
+
+kvm_clean_vm(kvm);
+kvm_clean_vcpu(kvm-&gt;vcpus);
+kvm_clean(kvm);
+</code></pre>
+
+<p>}
+{% endcodeblock %}
 这里正是第一个kvm基本原理： 一个虚拟机就是一个进程，我们的虚拟机从这个main函数开始</p>
 
 <p>让我先来看看kvm_init。这里很简单，就是打开了/dev/kvm设备，这是kvm的入口，对kvm的所有操作都是通过对文件描述符上执行ioctl来完成。
 这里很简单，就是打开kvm设备，然后将文件描述符返回到我自己创建的一个结构体当中。</p>
 
 <p>然后我们就开始创建一个vm，然后为其分配内存。
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_CREATE_VM</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+kvm->vm_fd = ioctl(kvm->dev_fd, KVM_CREATE_VM, 0);
+{% endcodeblock %}
 创建一个虚拟机很简单，在kvm设备上执行这么一个ioctl即可，然后会得到新建的vm的文件描述，用来操作这个vm。</p>
 
 <p>然后我们来分配内存，这里最重要的是struct kvm_userspace_memory_region这个数据结构。
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="o">/&lt;</span><span class="n">em</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">KVM_SET_USER_MEMORY_REGION</span> <span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;/</span>
-</span><span class='line'><span class="k">struct</span> <span class="n">kvm_userspace_memory_region</span> <span class="p">{</span>
-</span><span class='line'>        <span class="o">&lt;</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">u32</span> <span class="n">slot</span><span class="p">;</span>
-</span><span class='line'>        <span class="o">&lt;/</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">u32</span> <span class="n">flags</span><span class="p">;</span>
-</span><span class='line'>        <span class="o">&lt;</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">u64</span> <span class="n">guest_phys_addr</span><span class="p">;</span>
-</span><span class='line'>        <span class="o">&lt;/</span><span class="n">strong</span><span class="o">&gt;</span><span class="n">u64</span> <span class="n">memory_size</span><span class="p">;</span> <span class="o">/&lt;</span><span class="n">em</span><span class="o">&gt;</span> <span class="n">bytes</span> <span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;/</span>
-</span><span class='line'>        <span class="n">__u64</span> <span class="n">userspace_addr</span><span class="p">;</span> <span class="o">/&lt;</span><span class="n">em</span><span class="o">&gt;</span> <span class="n">start</span> <span class="n">of</span> <span class="n">the</span> <span class="n">userspace</span> <span class="n">allocated</span> <span class="n">memory</span> <span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;/</span>
-</span><span class='line'><span class="p">};</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+/<em> for KVM_SET_USER_MEMORY_REGION </em>/
+struct kvm_userspace_memory_region {
+        <strong>u32 slot;
+        </strong>u32 flags;
+        <strong>u64 guest_phys_addr;
+        </strong>u64 memory_size; /<em> bytes </em>/
+        __u64 userspace_addr; /<em> start of the userspace allocated memory </em>/
+};
+{% endcodeblock %}
 memory_size是guest的内存的大小。userspace_addr是你为其份分配的内存的起始地址，而guest_phys_addr则是这段内存映射到guest的什么物理内存地址。</p>
 
 <p>这里用mmap创建了一段匿名映射，并将地址置入userspace_addr。随后来告诉我们的vm这些信息：
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span><span class="p">,</span> <span class="n">KVM_SET_USER_MEMORY_REGION</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">amp</span><span class="p">;(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">mem</span><span class="p">));</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+ioctl(kvm->vm_fd, KVM_SET_USER_MEMORY_REGION, &amp;(kvm->mem));
+{% endcodeblock %}
 这里是来操作我们的vm了，不是kvm设备文件了。</p>
 
 <p>我们有了内存了，现在可以把我们的guest code加载的进来了，这个实现很简单就是打开编译后的二进制文件将其写入我们分配的内存空间当中。
@@ -152,75 +110,55 @@ memory_size是guest的内存的大小。userspace_addr是你为其份分配的�
 
 <p>有了内存，下一步就是vcpu了，创建vcpu是在kvm_init_vcpu函数里。
 这里最重要的操作只有这个：
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_GET_VCPU_MMAP_SIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-</span><span class='line'><span class="o">&amp;</span><span class="n">hellip</span><span class="p">;</span>
-</span><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span><span class="p">,</span> <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+vcpu->kvm_run_mmap_size = ioctl(kvm->dev_fd, KVM_GET_VCPU_MMAP_SIZE, 0);
+&hellip;
+vcpu->kvm_run = mmap(NULL, vcpu->kvm_run_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu->vcpu_fd, 0);
+{% endcodeblock %}
 struct kvm_run是保存vcpu状态的一个数据结构，稍后我们可以看到我们可以从这里得到当陷入后具体陷入原因。</p>
 
 <p>有了内存和vcpu就可以运行了：
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">amp</span><span class="p">;(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_thread</span><span class="p">),</span> <span class="p">(</span><span class="k">const</span> <span class="kt">pthread_attr_t</span> <span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">vcpu_thread_func</span><span class="p">,</span> <span class="n">kvm</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+pthread_create(&amp;(kvm->vcpus->vcpu_thread), (const pthread_attr_t *)NULL, kvm->vcpus[i].vcpu_thread_func, kvm)
+{% endcodeblock %}
 这里是另一个kvm基本概念了，一个vcpu就是一个线程。这里让我们为vcpu创建一个线程。</p>
 
 <p>最终我们到了最关键的部分了，就是这个vcpu线程。其实他就是一个循环。
 当循环开始的时候，我们让他执行guest code:
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ret</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="n">KVM_RUN</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure></notextile></div>
+{% codeblock lang:c %}
+ret = ioctl(kvm->vcpus->vcpu_fd, KVM_RUN, 0)
+{% endcodeblock %}
 当执行这条语句后，guest code就开始执行了，这个函数就阻塞在这里了。直到something happened而且需要由hypervisor进行处理的时候这个函数才会返回。
 比如说I/O发生了，这个函数就会返回了，这里我们就需要通过struct kvm_run中得到具体的陷入原因。我们的guest只是做一些I/O port的操作，所以可以看到
 当退出原因是KVM_EXIT_IO时，我将guest的所写入的数据print出来。</p>
 
 <p>到这里这就是这个virtualizer的全部了. 如果你想体验一下，只需要执行make。
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-</pre></td><td class='code'><pre><code class='sh'><span class='line'>:~/code/kvmsample<span class="nv">$ </span>make
-</span><span class='line'>cc    -c -o main.o main.c
-</span><span class='line'>gcc main.c -o kvmsample -lpthread
-</span><span class='line'>as -32 test.S -o test.o
-</span><span class='line'>ld -m elf_i386 <span class="p">&amp;</span>ndash<span class="p">;</span>oformat binary -N -e _start -Ttext 0x10000 -o test.bin test.o
-</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+{% codeblock lang:sh %}
+:~/code/kvmsample$ make
+cc    -c -o main.o main.c
+gcc main.c -o kvmsample -lpthread
+as -32 test.S -o test.o
+ld -m elf_i386 &ndash;oformat binary -N -e _start -Ttext 0x10000 -o test.bin test.o
+{% endcodeblock %}</p>
 
 <p>然后执行kvmsample
-<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='sh'><span class='line'><span class="nv">$ </span>./kvmsample
-</span><span class='line'><span class="nb">read </span>size: 712288
-</span><span class='line'>KVM start run
-</span><span class='line'>KVM_EXIT_IO
-</span><span class='line'>out port: 16, data: 0
-</span><span class='line'>KVM start run
-</span><span class='line'>KVM_EXIT_IO
-</span><span class='line'>out port: 16, data: 1
-</span><span class='line'>KVM start run
-</span><span class='line'>KVM_EXIT_IO
-</span><span class='line'>out port: 16, data: 2
-</span><span class='line'>KVM start run
-</span><span class='line'>KVM_EXIT_IO
-</span><span class='line'>out port: 16, data: 3
-</span><span class='line'><span class="p">&amp;</span>hellip<span class="p">;</span>.
-</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+{% codeblock lang:sh %}
+$ ./kvmsample
+read size: 712288
+KVM start run
+KVM_EXIT_IO
+out port: 16, data: 0
+KVM start run
+KVM_EXIT_IO
+out port: 16, data: 1
+KVM start run
+KVM_EXIT_IO
+out port: 16, data: 2
+KVM start run
+KVM_EXIT_IO
+out port: 16, data: 3
+&hellip;.
+{% endcodeblock %}</p>
 
 <p>其实qemu里面的code也就是这样，你也可以在其中找到这个loop，只不过它被qemu内部的各种设备框架所隐藏起来了。</p>
 ]]></content>
