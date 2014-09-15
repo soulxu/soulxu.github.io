@@ -4,7 +4,7 @@
   <title><![CDATA[Alex Xu]]></title>
   <link href="http://soulxu.github.io/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-08-11T20:13:06+08:00</updated>
+  <updated>2014-09-15T10:21:19+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -12,6 +12,604 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Some ideas for Nova API in Kilo]]></title>
+    <link href="http://soulxu.github.io/blog/2014/09/12/one-option-for-nova-api/"/>
+    <updated>2014-09-12T12:37:17+08:00</updated>
+    <id>http://soulxu.github.io/blog/2014/09/12/one-option-for-nova-api</id>
+    <content type="html"><![CDATA[<p>Close to Kilo, so It is time to think about what next for nova API. Let me
+write down some ideas at here, although I&rsquo;m not sure those idea can be accepted
+finally, but really hope those can give some help.</p>
+
+<p>There are two ideas, one is for micro-version, another one for policy.</p>
+
+<h1>Micro-version</h1>
+
+<p>When we propose v2 on v3, the propose already include a series method for
+supporting multiple version of api. Those methods also can be used in
+micro-version. But in finally those method was considered too complex.</p>
+
+<p>Thinking of there are some case for API Changing:</p>
+
+<ul>
+<li>Input changing</li>
+<li>Output changing</li>
+<li>Semantic changing</li>
+<li>Status code changing</li>
+</ul>
+
+
+<p>For the change of semantic and status code, those are simple. For semantic,
+there isn&rsquo;t choice we must provide two version python code in api layer.
+And status code change is pretty simple in the code (just one line).</p>
+
+<p>The most of complex part is input and output changing.
+For input change, we must change the input json-schema and python code in api layer.
+That enforce us to provide multiple version json-schema and python code, that
+really increase our cost of maintenance.</p>
+
+<p>Thinking of the key reason introduce those complex is we store format-info both in
+json-schema and python code. The json-schema already have the knowledge about the
+format, then we really needn&rsquo;t python code to learn that again.</p>
+
+<p>Let&rsquo;s take a look at some example:
+(The PoC code for new idea: <a href="https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4">https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4</a>)</p>
+
+<p>There is fake code for an extension that add new action to server. This fake code
+also includes some usual inconsistent in v2 API that we want to fix in the future.
+Anyway most of api code structure looks like as below:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">SomeActionController</span><span class="p">(</span><span class="n">wsgi</span><span class="o">.</span><span class="n">Controller</span><span class="p">):</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span> <span class="o">=</span> <span class="n">compute</span><span class="o">.</span><span class="n">API</span><span class="p">()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="o">.</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;nova.context&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">action_body</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="s">&quot;someAction&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">param_a</span> <span class="o">=</span> <span class="n">action_body</span><span class="p">[</span><span class="s">&quot;paramA&quot;</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">instance</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">get_instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span>
+</span><span class='line'>                                       <span class="n">want_objects</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">authorize</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&quot;some_action&quot;</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="o">.</span><span class="n">some_action</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">param_a</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">{</span><span class="s">&quot;ActionResult&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;resultA&quot;</span><span class="p">:</span> <span class="n">res</span><span class="p">}}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Also need related json-schema</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">some_action</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;someAction&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;paramA&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;paramA&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;someAction&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<h2>Change the API with the method of v2 on v3 propose</h2>
+
+<p>When we want to fix those inconsistent and other mistake (status code)
+We need change both the python code and json-schema</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="o">....</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&quot;2.1&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&quot;3.0&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@wsgi.v2_translate_body</span><span class="p">(</span><span class="n">gap</span><span class="o">.</span><span class="n">base</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="o">.</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;nova.context&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">action_body</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="s">&quot;some_action&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">param_a</span> <span class="o">=</span> <span class="n">action_body</span><span class="p">[</span><span class="s">&quot;param_a&quot;</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">instance</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">get_instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span>
+</span><span class='line'>                                       <span class="n">want_objects</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">authorize</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&quot;some_action&quot;</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="o">.</span><span class="n">some_action</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">param_a</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">{</span><span class="s">&quot;action_result&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;result_a&quot;</span><span class="p">:</span> <span class="n">res</span><span class="p">}}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">some_action</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;some_action&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;param_a&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;param_a&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;some_action&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Except change those two file, you also need add another translate file like below:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">base</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;request_body&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;some_action&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;rename_to&#39;</span><span class="p">:</span> <span class="s">&#39;someAction&#39;</span><span class="p">}</span>
+</span><span class='line'>        <span class="s">&#39;param_a&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;rename_to&#39;</span><span class="p">:</span> <span class="s">&#39;paramA&#39;</span><span class="p">}</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;response_body&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;action_result&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;rename_to&#39;</span><span class="p">:</span> <span class="s">&#39;actionResult&#39;</span><span class="p">}</span>
+</span><span class='line'>        <span class="s">&#39;result_a&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;rename_to&#39;</span><span class="p">:</span> <span class="s">&#39;resultA&#39;</span><span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Now we are at the end when we doing some change for API. That really complex.
+This isn&rsquo;t the most complex one. For schedule_hint case, there also need translation
+instruct &lsquo;move_to&rsquo;. At least this is complex to implement in the infrastructure.
+We need implement those for this propose:</p>
+
+<ul>
+<li>Implement parse for tranlsation dict.</li>
+<li>Implement translation instruct &lsquo;return_to&rsquo; and &lsquo;move_to&rsquo;.</li>
+<li>Not only implement translation for input, also for json-schema.</li>
+</ul>
+
+
+<h2>Reduce the complex</h2>
+
+<p>Thinking of the key reason of make those complex thing is the python code also need
+input/output format knowledge. Actually, the json-schema already includes those
+infomation.</p>
+
+<p>The idea of new method is just eliminate the format knowledge from python code.
+Whatever the format it is, python code just need got a flat dict(May can be nova object)
+without any format. Then when the format is changed, we just need update the json-schema,
+we needn&rsquo;t any modify for python code.</p>
+
+<p>With this method, we need json-schema for response, there already have plan to move
+response json-schema into nova. So that won&rsquo;t be an extra work.</p>
+
+<p>After make the python code only accept a flat dict instead of whole request body,
+the code only have some simple change as below:
+(PoC with evacuate api as example:
+ <a href="https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd">https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd</a>)</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;nova.context&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">param_a</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s">&quot;param_a&quot;</span><span class="p">]</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">instance</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">get_instance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span>
+</span><span class='line'>                                       <span class="n">want_objects</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">authorize</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&quot;some_action&quot;</span><span class="p">)</span>
+</span><span class='line'>        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="o">.</span><span class="n">some_action</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">param_a</span><span class="p">)</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="p">{</span><span class="s">&quot;result_a&quot;</span><span class="p">:</span> <span class="n">res</span><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">some_action_input_2_1</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;someAction&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;paramA&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;paramA&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;someAction&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;paramA&#39;</span><span class="p">:</span> <span class="s">&#39;param_a&#39;</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">some_action_output_2_1</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;actionResult&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;resultA&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;resultA&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;actionResult&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;resultA&#39;</span><span class="p">:</span> <span class="s">&#39;result_a&#39;</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<h2>Change API with new idea</h2>
+
+<p>Let see what happened when fixed the inconsistent and other mistake.
+(PoC with evacuate api as example:
+ <a href="https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8">https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8</a>)</p>
+
+<p>We needn&rsquo;t doing anything for python code, except bump the version in the
+decorator:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>        <span class="o">....</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>And next just need copy the old json-schema and doing a little change.</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">some_action_input_3_0</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;some_action&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;param_a&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;param_a&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;some_action&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;param_a&#39;</span><span class="p">:</span> <span class="s">&#39;param_a&#39;</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">some_action_output_3_0</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>        <span class="s">&#39;action_result&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+</span><span class='line'>            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>                <span class="s">&#39;result_a&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+</span><span class='line'>            <span class="p">},</span>
+</span><span class='line'>            <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;result_a&#39;</span><span class="p">],</span>
+</span><span class='line'>            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>        <span class="p">},</span>
+</span><span class='line'>    <span class="p">},</span>
+</span><span class='line'>    <span class="s">&#39;required&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;action_result&#39;</span><span class="p">],</span>
+</span><span class='line'>    <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+</span><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;result_a&#39;</span><span class="p">:</span> <span class="s">&#39;result_a&#39;</span><span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Actually the most of work for adding new schema is just copy.</p>
+
+<p>There is one more thing for explanation as below:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;result_a&#39;</span><span class="p">:</span> <span class="s">&#39;result_a&#39;</span><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Actually this is also kind of translation. But without format knowledge in the
+python code, this reduce the complex in our infrastruct code.</p>
+
+<p>We just need implement a tranlsation to mapping the input into flat dict.
+We needn&rsquo;t support different kind of instruct, and needn&rsquo;t to translate the
+json-schema.</p>
+
+<h2>Semnamic Changing</h2>
+
+<p>Another thing is the semnamic changing, so there is decorator for it:
+(PoC with evacuate API as example:
+ <a href="https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72">https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72</a>)</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>This means the function support the version from 2.1 to 3.0. And the infrastruct code
+will search the specific version json-schema for input validation.</p>
+
+<p>If there isn&rsquo;t any semantic change in the api code, we needn&rsquo;t write another function for it.</p>
+
+<p>If there is semantic change happened, the code will be looks like as below:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="s">&#39;3.3&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action_1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>        <span class="o">....</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;4.0&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="s">&#39;4.5&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;4.0&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action_2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>        <span class="o">....</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>Those code means verison v2.1~v3.3 will execute some_action_1, v4.0~v4.5 will
+execute some_action_2.</p>
+
+<p>So with those method, when we need change the input/ouput and status code, we
+just need change the json-schema and parameter of some decorators.</p>
+
+<p>Only need write any the function, when we change the semantic.</p>
+
+<p>Then our python code isn&rsquo;t looks complex by a lot of code sharing between different
+version code.</p>
+
+<h1>Policy enforcement</h1>
+
+<p>We already have some plan for improve the nova api policy enforcement.
+There already have two:</p>
+
+<ul>
+<li>Enforce policy at Nova REST API layer</li>
+<li>Provide separated policy rule for each API.</li>
+</ul>
+
+
+<p>After we implement those improvement, There is one more thing we can do. It is about doing
+the policy enforcemance by wsgi infrastructure. Currently the each policy enforcement need
+write one line code in the api layer:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">authorize</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&quot;some_action&quot;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>We can eliminate this duplicated code.</p>
+
+<p>So hope the infrasturcture can doing that. For policy enforcement, policy rule need check
+with target. The infrastruct need to generate the target for policy.</p>
+
+<p>So the API code will looks like as below:</p>
+
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='python'><span class='line'><span class="k">class</span> <span class="nc">SomeActionController</span><span class="p">(</span><span class="n">wsgi</span><span class="o">.</span><span class="n">Controller</span><span class="p">):</span>
+</span><span class='line'>    <span class="n">resource_obj_cls</span> <span class="o">=</span> <span class="n">objects</span><span class="o">.</span><span class="n">Instance</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span class='line'>        <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span> <span class="o">=</span> <span class="n">compute</span><span class="o">.</span><span class="n">API</span><span class="p">()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
+</span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">)</span>
+</span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;nova.context&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">param_a</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s">&quot;param_a&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_api</span><span class="o">.</span><span class="n">some_action</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">param_a</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">return</span> <span class="p">{</span><span class="s">&quot;result_a&quot;</span><span class="p">:</span> <span class="n">res</span><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+
+<p>The api code will accept nova object instead of resource id. Then the policy enforcement will
+be done by wsgi code.</p>
+
+<p>I&rsquo;m not write some PoC code for this yet. I will write some code to prove this idea works later.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[使用KVM API实现Emulator demo]]></title>
@@ -30,7 +628,7 @@
 
 <p>首先来看看Guest有多简单。</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -48,7 +646,7 @@
 </span><span class='line'>    <span class="nf">out</span> <span class="nv">%ax</span><span class="p">,</span> <span class="no">$0x10</span>
 </span><span class='line'>    <span class="nf">inc</span> <span class="nv">%ax</span>
 </span><span class='line'>    <span class="nf">jmp</span> <span class="no">loop1</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>不熟悉汇编也没关系，这code很简单，基本也能猜到干啥了。对，Guest只是基于at&amp;t汇编写的一个在8086模式下的死循环，不停的向端口0x10写东西。目标就是让这个Guest跑起来了。</p>
@@ -57,7 +655,7 @@
 
 <p>我们先来看看main函数：</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -109,7 +707,7 @@
 </span><span class='line'>    <span class="n">kvm_clean_vcpu</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="p">);</span>
 </span><span class='line'>    <span class="n">kvm_clean</span><span class="p">(</span><span class="n">kvm</span><span class="p">);</span>
 </span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>这里正是第一个kvm基本原理： 一个虚拟机就是一个进程，我们的虚拟机从这个main函数开始</p>
@@ -119,16 +717,16 @@
 
 <p>然后我们就开始创建一个vm，然后为其分配内存。</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_CREATE_VM</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>创建一个虚拟机很简单，在kvm设备上执行这么一个ioctl即可，然后会得到新建的vm的文件描述，用来操作这个vm。</p>
 
 <p>然后我们来分配内存，这里最重要的是struct kvm_userspace_memory_region这个数据结构。</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -144,16 +742,16 @@
 </span><span class='line'>        <span class="n">__u64</span> <span class="n">memory_size</span><span class="p">;</span> <span class="cm">/* bytes */</span>
 </span><span class='line'>        <span class="n">__u64</span> <span class="n">userspace_addr</span><span class="p">;</span> <span class="cm">/* start of the userspace allocated memory */</span>
 </span><span class='line'><span class="p">};</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>memory_size是guest的内存的大小。userspace_addr是你为其份分配的内存的起始地址，而guest_phys_addr则是这段内存映射到guest的什么物理内存地址。</p>
 
 <p>这里用mmap创建了一段匿名映射，并将地址置入userspace_addr。随后来告诉我们的vm这些信息：</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vm_fd</span><span class="p">,</span> <span class="n">KVM_SET_USER_MEMORY_REGION</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">mem</span><span class="p">));</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>这里是来操作我们的vm了，不是kvm设备文件了。</p>
@@ -164,22 +762,22 @@
 <p>有了内存，下一步就是vcpu了，创建vcpu是在kvm_init_vcpu函数里。
 这里最重要的操作只有这个：</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 </pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">dev_fd</span><span class="p">,</span> <span class="n">KVM_GET_VCPU_MMAP_SIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
 </span><span class='line'><span class="p">...</span>
 </span><span class='line'><span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run</span> <span class="o">=</span> <span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">kvm_run_mmap_size</span><span class="p">,</span> <span class="n">PROT_READ</span> <span class="o">|</span> <span class="n">PROT_WRITE</span><span class="p">,</span> <span class="n">MAP_SHARED</span><span class="p">,</span> <span class="n">vcpu</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>struct kvm_run是保存vcpu状态的一个数据结构，稍后我们可以看到我们可以从这里得到当陷入后具体陷入原因。</p>
 
 <p>有了内存和vcpu就可以运行了：</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_thread</span><span class="p">),</span> <span class="p">(</span><span class="k">const</span> <span class="kt">pthread_attr_t</span> <span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">vcpu_thread_func</span><span class="p">,</span> <span class="n">kvm</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>这里是另一个kvm基本概念了，一个vcpu就是一个线程。这里让我们为vcpu创建一个线程。</p>
@@ -187,9 +785,9 @@
 <p>最终我们到了最关键的部分了，就是这个vcpu线程。其实他就是一个循环。
 当循环开始的时候，我们让他执行guest code:</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">ret</span> <span class="o">=</span> <span class="n">ioctl</span><span class="p">(</span><span class="n">kvm</span><span class="o">-&gt;</span><span class="n">vcpus</span><span class="o">-&gt;</span><span class="n">vcpu_fd</span><span class="p">,</span> <span class="n">KVM_RUN</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>当执行这条语句后，guest code就开始执行了，这个函数就阻塞在这里了。直到something happened而且需要由hypervisor进行处理的时候这个函数才会返回。
@@ -198,7 +796,7 @@
 
 <p>到这里这就是这个virtualizer的全部了. 如果你想体验一下，只需要执行make。</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -208,12 +806,12 @@
 </span><span class='line'>gcc main.c -o kvmsample -lpthread
 </span><span class='line'>as -32 test.S -o test.o
 </span><span class='line'>ld -m elf_i386 --oformat binary -N -e _start -Ttext 0x10000 -o test.bin test.o
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>然后执行kvmsample</p>
 
-<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
 <span class='line-number'>3</span>
 <span class='line-number'>4</span>
@@ -243,7 +841,7 @@
 </span><span class='line'>KVM_EXIT_IO
 </span><span class='line'>out port: 16, data: 3
 </span><span class='line'>....
-</span></code></pre></td></tr></table></div></figure>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
 <p>其实qemu里面的code也就是这样，你也可以在其中找到这个loop，只不过它被qemu内部的各种设备框架所隐藏起来了。</p>
