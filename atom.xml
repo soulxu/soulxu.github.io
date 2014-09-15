@@ -4,7 +4,7 @@
   <title><![CDATA[Alex Xu]]></title>
   <link href="http://soulxu.github.io/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-09-15T10:21:19+08:00</updated>
+  <updated>2014-09-15T10:33:57+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -238,7 +238,8 @@ We need change both the python code and json-schema</p>
 
 <p>Now we are at the end when we doing some change for API. That really complex.
 This isn&rsquo;t the most complex one. For schedule_hint case, there also need translation
-instruct &lsquo;move_to&rsquo;. At least this is complex to implement in the infrastructure.
+instruct &lsquo;move_to&rsquo;. And also we have other way for distinguish the semantic change, it&rsquo;s
+also make the code hard to read. At least this is complex to implement in the infrastructure.
 We need implement those for this propose:</p>
 
 <ul>
@@ -248,7 +249,7 @@ We need implement those for this propose:</p>
 </ul>
 
 
-<h2>Reduce the complex</h2>
+<h2>The new method for support multiple version</h2>
 
 <p>Thinking of the key reason of make those complex thing is the python code also need
 input/output format knowledge. Actually, the json-schema already includes those
