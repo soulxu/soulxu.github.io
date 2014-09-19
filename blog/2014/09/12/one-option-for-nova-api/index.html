@@ -9,8 +9,8 @@
   <meta name="author" content="Alex Xu (soulxu@gmail.com)">
 
   
-  <meta name="description" content="Close to Kilo, so It is time to think about what next for nova API. Let me
-write down some ideas from me at here, although I&rsquo;m not sure those &hellip;">
+  <meta name="description" content="Close to Kilo, it is time to think about what next for nova API. Let me
+write down some ideas from me at here, although I&rsquo;m not sure those idea &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -92,11 +92,11 @@ write down some ideas from me at here, although I&rsquo;m not sure those &hellip
   </header>
 
 
-<div class="entry-content"><p>Close to Kilo, so It is time to think about what next for nova API. Let me
+<div class="entry-content"><p>Close to Kilo, it is time to think about what next for nova API. Let me
 write down some ideas from me at here, although I&rsquo;m not sure those idea can be
 accepted finally, but really hope those can give some help.</p>
 
-<p>There are some ideas for micro-version and policy.</p>
+<p>Those ideas are for micro-version and policy.</p>
 
 <h1>Micro-version</h1>
 
@@ -104,7 +104,7 @@ accepted finally, but really hope those can give some help.</p>
 supporting multiple version in API. Those methods can be used in
 micro-version. But in finally those methods was considered too complex or too heavy.</p>
 
-<p>Thinking of there are some case for API Changing:</p>
+<p>Think of use-cases for API change:</p>
 
 <ul>
 <li>Input changing</li>
@@ -115,19 +115,20 @@ micro-version. But in finally those methods was considered too complex or too he
 </ul>
 
 
-<p>For the change of status code, and resource name are simple to implement.
-For semantic, there isn&rsquo;t choice we must provide two version python code in api layer.
-We propose method for distinguish different semantic in v2 on v3, but it also have
-too much magic, I want to simply it.</p>
+<p>For the change of status code, and resource name are really simple to implement.</p>
 
-<p>I think the most of complex part is input and output change. And in v2 on v3 propose,
-this part also implement as most complex. We provide method to translate the input and
-json-schema, but that make the code hard to maintenance and read.</p>
+<p>For semantic changes, there isn&rsquo;t choice we must provide two version python code
+in api layer. We propose method for distinguish different semantic in v2 on v3,
+but it have too much magic, so think about to simplify it.</p>
 
-<p>So the new ideas is want to provide simple implementation for input/output change, and
+<p>The most of complex part is input and output change. And in v2 on v3 propose,
+this part also implement as most complex. We provide method to translate the input
+and json-schema, but that make the json-schema hard to maintenance and read.</p>
+
+<p>The new ideas is want to provide simple implementation for input/output change, and
 reduce the magic we used.</p>
 
-<p>Actually there are already done some POC for those idea:</p>
+<p>Actually there are already done some POC for those ideas:</p>
 
 <ul>
 <li>The PoC with mapping input/output into flat dict:
@@ -137,7 +138,7 @@ reduce the magic we used.</p>
 </ul>
 
 
-<p>The frist 3 commits are implement the infrastruct as new ideas.
+<p>The frist 3 commits are implement wsgi infrastruct as new ideas.
 The last 4 commits are demo the use-case in micro-version.</p>
 
 <h2>Let&rsquo;s take a look at some example</h2>
@@ -222,8 +223,13 @@ the future. Anyway most of API code structure looks like as below:</p>
 
 <h2>Change the API with the method in v2 on v3 propose</h2>
 
-<p>When we want to fix those inconsistent and other mistake (status code),
-we need write a translation-schema file (looks like json-schema).</p>
+<p>For fix the status code, we just need change the decorator to indict
+the specified version status code.</p>
+
+<p>For fix the inconsistent in the input, we need write a translation-schema
+file (looks like json-schema).</p>
+
+<p>And for fix the inconsistent in the output, we need change the python code directly.</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -259,6 +265,12 @@ we need write a translation-schema file (looks like json-schema).</p>
 <span class='line-number'>7</span>
 <span class='line-number'>8</span>
 <span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
 </pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="o">....</span>
 </span><span class='line'>
 </span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
@@ -267,24 +279,32 @@ we need write a translation-schema file (looks like json-schema).</p>
 </span><span class='line'>    <span class="nd">@wsgi.v2_translate_body</span><span class="p">(</span><span class="n">gap</span><span class="o">.</span><span class="n">base</span><span class="p">)</span>
 </span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="o">.</span><span class="n">some_action</span><span class="p">)</span>
 </span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+</span><span class='line'>        <span class="n">context</span> <span class="o">=</span> <span class="n">req</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s">&quot;nova.context&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">action_body</span> <span class="o">=</span> <span class="n">body</span><span class="p">[</span><span class="s">&quot;someAction&quot;</span><span class="p">]</span>
+</span><span class='line'>        <span class="n">param_a</span> <span class="o">=</span> <span class="n">action_body</span><span class="p">[</span><span class="s">&quot;paramA&quot;</span><span class="p">]</span>
+</span><span class='line'>
 </span><span class='line'>        <span class="o">...</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="k">return</span> <span class="p">{</span><span class="s">&quot;action_result&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s">&quot;result_a&quot;</span><span class="p">:</span> <span class="n">res</span><span class="p">}}</span>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>Then before invoke API python code, the decorator &lsquo;v2_translate_body&rsquo; will translate
-the input as the old one that make the python code can understand the request. Python code
-always assume the user request is oldest format.</p>
+<p>Before wsgi invoke API python code, the decorator &lsquo;v2_translate_body&rsquo; should translate
+input and json-schema as the old one that make API python code can understand the
+request. That means API python code always assume the user request is oldest format.</p>
 
-<p>There are two downside with this method:</p>
+<p>There are two downsides with this method:</p>
 
 <ul>
 <li><p>The implementation is complex</p>
 
-<p>Actually not only need translate the request body, also need translate the json-schema that
-used to validate the input with new format.</p>
+<p>Actually not only need translate the request body, also need translate the json-schema
+that used to validate the input with new format, and also for the output.</p>
 
-<p>Not only &lsquo;rename_to&rsquo; instruct, also need &lsquo;move_to&rsquo; instruct for the case like scheduler_hints.
-(The scheduler_hint param is out of the server struct in the request, that is wrong.
+<p>And not only support &lsquo;rename_to&rsquo; instruct, also need support &lsquo;move_to&rsquo; instruct for
+the case like scheduler_hints.</p>
+
+<p>(The scheduler_hint param is out of the server struct in the request, that is wrong.
  <a href="https://github.com/openstack/nova/blob/master/doc/api_samples/OS-SCH-HNT/scheduler-hints-post-req.json">https://github.com/openstack/nova/blob/master/doc/api_samples/OS-SCH-HNT/scheduler-hints-post-req.json</a>)</p></li>
 <li><p>The multiple version json-schema is unreadable and hard to maintenance by dev</p>
 
@@ -302,20 +322,26 @@ except they runing the code and print it out.</p></li>
 
 <p>Thinking of the key reason of make those complex thing is the python code also need
 input/output format knowledge. Actually, the json-schema already includes those
-infomation.</p>
+information.</p>
 
-<p>The idea of new method is just eliminate the format knowledge from python code.
-Whatever the format it is, python code just need got a flat dict(May can be nova object)
-without any format. Then when the format is changed, we just need update the json-schema,
-we needn&rsquo;t any modify for python code.</p>
+<p>The idea of new method for input/output change is just eliminate the format knowledge
+from python code. Whatever the format it is, python code just need got a flat dict
+without any format.</p>
 
-<p>With this method, we need json-schema for response, there already have plan to move
-response json-schema into nova. So that won&rsquo;t be an extra work.</p>
+<p>(And other idea is got a nova objects, and I didn&rsquo;t think out of enough benefit from
+using nova object, but this idea is worth to think about. Honestly I&rsquo;m not familiar
+with objects, maybe the POC with nova object is bad)</p>
+
+<p>Then after the input/output format is changed, we just need update the json-schema,
+we needn&rsquo;t any modify for API python code.</p>
+
+<p>Note that with this method, we need json-schema for response also, there already
+have plan to move response json-schema into nova. So that won&rsquo;t be an extra work.</p>
 
 <p>After make the python code only accept a flat dict instead of whole request body,
-the code only have some simple change as below:
-(PoC with evacuate api as example:
- <a href="https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd">https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd</a>)</p>
+the code need some simple change as below:</p>
+
+<p>(PoC with evacuate api as example: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd">https://github.com/soulxu/nova-v3-api-doc/commit/2d8489650ba221a3019b7db548ef8ce7a8a186dd</a>)</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -348,7 +374,7 @@ the code only have some simple change as below:
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-
+<p>And change for json-schema:</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -421,9 +447,9 @@ the code only have some simple change as below:
 
 <h2>Change API with new idea</h2>
 
-<p>Let see what happened when fixed the inconsistent and other mistake.
-(PoC with evacuate api as example:
- <a href="https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8">https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8</a>)</p>
+<p>Let&rsquo;s try some use-case to demo this idea. Frist fixed the inconsistent and status code.</p>
+
+<p>(PoC with evacuate api as example: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8">https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8</a>)</p>
 
 <p>We needn&rsquo;t doing anything for python code, except bump the version in the
 decorator:</p>
@@ -445,7 +471,7 @@ decorator:</p>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>And next just need copy the old json-schema and doing a little change.</p>
+<p>Next just need copy the v2.1 json-schema as v3.0, and doing a little change.</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -516,39 +542,52 @@ decorator:</p>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>Actually the most of work for adding new schema is just copy. Each version
-json-schema just list at here, it more readable for developer.</p>
+<p>The code looks more. But actually the most of work is just copy the 2.1 json-schema
+as 3.0, and change the inconsistent in the 3.0 json-schema. I chose just put the each
+version json-schema in the file, and naming with version. That make the json-schema
+easy to maintenance and more readable for dev. And the wsgi infrastruct implementation
+is more simple.</p>
 
-<p>There is one more thing for explanation as below:</p>
+<p>There are more things need to be explaned.</p>
+
+<ul>
+<li>The mapping info:</li>
+</ul>
+
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="s">&#39;ext:mapping&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s">&#39;result_a&#39;</span><span class="p">:</span> <span class="s">&#39;result_a&#39;</span><span class="p">}</span>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>The wsgi code will use this mapping info to map the request as a flat dict.
-Actually this is also kind of translation. But without format knowledge in the
-python code, this reduce the complex in our infrastruct code.</p>
+<p>The wsgi code will use this mapping info to map the input/output into/from flat dict
+(or nova objects).</p>
 
-<p>We just need implement a tranlsation to mapping the input into flat dict.
-We needn&rsquo;t support different kind of instruct, and needn&rsquo;t to translate the
-json-schema.</p>
+<p>Actually this is also kind of translation. But without format knowledge in the
+python code, this reduce the complex in our wsgi infrastruct. We just need implement
+tranlsation to mapping the input into flat dict (nova objects). We needn&rsquo;t support
+different kind of instruct, and needn&rsquo;t to translate the json-schema.</p>
 
-<h2>Semantic Changing</h2>
+<ul>
+<li>The decorator wsgi.response</li>
+</ul>
 
-<p>Another thing is the semantic changing, so there is decorator for it:
-(PoC with evacuate API as example:
- <a href="https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72">https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72</a>)</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='python'><span class='line'>    <span class="nd">@wsgi.version</span><span class="p">(</span><span class="n">base</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>This means the function support the version from 2.1 to 3.0. And the infrastruct code
-will search the specific version json-schema for input validation.</p>
+<p>This decorator means the request version between 2.1 and 3.0 will be routed into
+this function. If there isn&rsquo;t support any version between 2.1 and 3.0, there also
+no json-schema for that version, the wsgi code will return error for the user.</p>
 
-<p>If there isn&rsquo;t any semantic change in the api code, we needn&rsquo;t write another function for it.</p>
+<h2>Make Semantic Change</h2>
+
+<p>Another use-case is the semantic change.</p>
+
+<p>(PoC with evacuate API as example:
+ <a href="https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72">https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72</a>)</p>
 
 <p>If there is semantic change happened, the code will be looks like as below:</p>
 
@@ -572,7 +611,7 @@ will search the specific version json-schema for input validation.</p>
 </span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">204</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;2.1&#39;</span><span class="p">)</span>
 </span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;3.0&#39;</span><span class="p">)</span>
 </span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action_1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
 </span><span class='line'>        <span class="o">....</span>
 </span><span class='line'>
 </span><span class='line'>
@@ -580,36 +619,52 @@ will search the specific version json-schema for input validation.</p>
 </span><span class='line'>    <span class="nd">@extensions.expected_error</span><span class="p">(())</span>
 </span><span class='line'>    <span class="nd">@wsgi.response</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s">&#39;4.0&#39;</span><span class="p">)</span>
 </span><span class='line'>    <span class="nd">@validation.schema</span><span class="p">(</span><span class="n">some_action</span><span class="p">)</span>
-</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action_2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+</span><span class='line'>    <span class="k">def</span> <span class="nf">some_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
 </span><span class='line'>        <span class="o">....</span>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>Those code means verison v2.1~v3.3 will execute some_action_1, v4.0~v4.5 will
-execute some_action_2.</p>
+<p>Those code means verison v2.1~v3.3 will execute frist some_action function,
+v4.0~v4.5 will execute second some_action function.</p>
 
-<p>So with those method, when we need change the input/ouput and status code, we
-just need change the json-schema and parameter of some decorators.</p>
+<p>We only write new function for same api when we have semantic change. This is
+more readable than we execute different version internal function in same api function.
+(compare to <a href="https://review.openstack.org/82301">https://review.openstack.org/82301</a>)</p>
 
-<p>Only need write any the function, when we change the semantic.</p>
+<p>And also easy to maintenance than we add function for each API version (Add function
+for each API version come from micro-version discussion previously).</p>
 
-<p>Then our python code isn&rsquo;t looks complex by a lot of code sharing between different
-version code.</p>
+<p>If there are duplicate code between two version some_action function, we just need
+move the duplicate code into common function as we share code in normally.</p>
+
+<p>The complete demo for user-case with real API is in the POC last 4 commits.</p>
+
+<ul>
+<li>Fix inconsistent for evacuate: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8">https://github.com/soulxu/nova-v3-api-doc/commit/295a28fdf435f23bfa942fc3d9d46716caee29b8</a></li>
+<li>Add new fake parameter for evacuate: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/04896d1109b6ce9d213eaf1f270a8c8c34ca04c6">https://github.com/soulxu/nova-v3-api-doc/commit/04896d1109b6ce9d213eaf1f270a8c8c34ca04c6</a></li>
+<li>Fix status code for evacuate: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/3ca3ebc9a3c17f5694918958f8bc8c5009f821d1">https://github.com/soulxu/nova-v3-api-doc/commit/3ca3ebc9a3c17f5694918958f8bc8c5009f821d1</a></li>
+<li>Fake semantic change for evcaute: <a href="https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72">https://github.com/soulxu/nova-v3-api-doc/commit/704118c9e69891dd32729903b348bf85ab136a72</a></li>
+</ul>
+
+
+<p>With those method, hope we got more easy maintenance, more readable, simply to implement
+for micro-version.</p>
 
 <h1>Policy enforcement</h1>
 
 <p>We already have some plan for improve the nova api policy enforcement.
-There already have two:</p>
+Some of them block by the v2 on v3 discussion, but those will continue in K (but still low priority)</p>
 
 <ul>
-<li>Enforce policy at Nova REST API layer</li>
-<li>Provide separated policy rule for each API.</li>
+<li>Enforce policy at Nova REST API layer: <a href="https://review.openstack.org/92005">https://review.openstack.org/92005</a></li>
+<li>Provide separated policy rule for each API: <a href="https://review.openstack.org/92326">https://review.openstack.org/92326</a></li>
+<li>Support policy configuration directoy: <a href="https://review.openstack.org/105362">https://review.openstack.org/105362</a> (Already merged in oslo-incubator)</li>
 </ul>
 
 
-<p>After we implement those improvement, There is one more thing we can do. It is about doing
-the policy enforcemance by wsgi infrastructure. Currently the each policy enforcement need
-write one line code in the api layer:</p>
+<p>After we provide separated policy rule for all the API. There is one more thing
+we can do. It is about doing the policy enforcemance by wsgi infrastructure.
+Currently the each policy enforcement need write one line code in the api layer:</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 </pre></td><td class='code'><pre><code class='python'><span class='line'><span class="n">authorize</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">instance</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&quot;some_action&quot;</span><span class="p">)</span>
@@ -618,8 +673,9 @@ write one line code in the api layer:</p>
 
 <p>We can eliminate this duplicated code.</p>
 
-<p>So hope the infrasturcture can doing that. For policy enforcement, policy rule need check
-with target. The infrastruct need to generate the target for policy.</p>
+<p>So hope the wsgi infrasturcture can doing that. For policy enforcement, policy rule
+need check with &lsquo;target&rsquo;. So there need way let wsgi infrastruct to know how to
+generate the target for policy checks.</p>
 
 <p>So the API code will looks like as below:</p>
 
@@ -656,10 +712,12 @@ with target. The infrastruct need to generate the target for policy.</p>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>The api code will accept nova object instead of resource id. Then the policy enforcement will
-be done by wsgi code.</p>
+<p>The api code will accept nova object instead of resource id. Wsgi code will know
+to instance the target by resource_obj_cls. Then the policy enforcement can be
+done by wsgi code.</p>
 
-<p>I&rsquo;m not write some PoC code for this yet. I will write some code to prove this idea works later.</p>
+<p>I didn&rsquo;t write some PoC code for this yet. I will write some code to prove this
+idea works later.</p>
 </div>
 
 
