@@ -10,7 +10,7 @@
 
   
   <meta name="description" content="Close to Kilo, so It is time to think about what next for nova API. Let me
-write down some ideas at here, although I&rsquo;m not sure those idea can &hellip;">
+write down some ideas from me at here, although I&rsquo;m not sure those &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -93,16 +93,16 @@ write down some ideas at here, although I&rsquo;m not sure those idea can &helli
 
 
 <div class="entry-content"><p>Close to Kilo, so It is time to think about what next for nova API. Let me
-write down some ideas at here, although I&rsquo;m not sure those idea can be accepted
-finally, but really hope those can give some help.</p>
+write down some ideas from me at here, although I&rsquo;m not sure those idea can be
+accepted finally, but really hope those can give some help.</p>
 
-<p>There are two ideas, one is for micro-version, another one for policy.</p>
+<p>There are some ideas for micro-version and policy.</p>
 
 <h1>Micro-version</h1>
 
 <p>When we propose v2 on v3, the propose already include a series method for
-supporting multiple version of api. Those methods also can be used in
-micro-version. But in finally those method was considered too complex.</p>
+supporting multiple version in API. Those methods can be used in
+micro-version. But in finally those methods was considered too complex or too heavy.</p>
 
 <p>Thinking of there are some case for API Changing:</p>
 
@@ -111,29 +111,40 @@ micro-version. But in finally those method was considered too complex.</p>
 <li>Output changing</li>
 <li>Semantic changing</li>
 <li>Status code changing</li>
+<li>Resource name changing</li>
 </ul>
 
 
-<p>For the change of semantic and status code, those are simple. For semantic,
-there isn&rsquo;t choice we must provide two version python code in api layer.
-And status code change is pretty simple in the code (just one line).</p>
+<p>For the change of status code, and resource name are simple to implement.
+For semantic, there isn&rsquo;t choice we must provide two version python code in api layer.
+We propose method for distinguish different semantic in v2 on v3, but it also have
+too much magic, I want to simply it.</p>
 
-<p>The most of complex part is input and output changing.
-For input change, we must change the input json-schema and python code in api layer.
-That enforce us to provide multiple version json-schema and python code, that
-really increase our cost of maintenance.</p>
+<p>I think the most of complex part is input and output change. And in v2 on v3 propose,
+this part also implement as most complex. We provide method to translate the input and
+json-schema, but that make the code hard to maintenance and read.</p>
 
-<p>Thinking of the key reason introduce those complex is we store format-info both in
-json-schema and python code. The json-schema already have the knowledge about the
-format, then we really needn&rsquo;t python code to learn that again.</p>
+<p>So the new ideas is want to provide simple implementation for input/output change, and
+reduce the magic we used.</p>
 
-<p>Let&rsquo;s take a look at some example:
-(The PoC for new idea: <a href="https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4,">https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4,</a>
- The PoC with obj: <a href="https://github.com/soulxu/nova-v3-api-doc/tree/new_idea_with_obj2">https://github.com/soulxu/nova-v3-api-doc/tree/new_idea_with_obj2</a>)</p>
+<p>Actually there are already done some POC for those idea:</p>
+
+<ul>
+<li>The PoC with mapping input/output into flat dict:
+    <a href="https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4">https://github.com/soulxu/nova-v3-api-doc/commits/new_idea4</a></li>
+<li>The PoC with mapping input/output into nova object:
+    <a href="https://github.com/soulxu/nova-v3-api-doc/tree/new_idea_with_obj2">https://github.com/soulxu/nova-v3-api-doc/tree/new_idea_with_obj2</a></li>
+</ul>
+
+
+<p>The frist 3 commits are implement the infrastruct as new ideas.
+The last 4 commits are demo the use-case in micro-version.</p>
+
+<h2>Let&rsquo;s take a look at some example</h2>
 
 <p>There is fake code for an extension that add new action to server. This fake code
-also includes some usual inconsistent in v2 API that we want to fix in the future.
-Anyway most of api code structure looks like as below:</p>
+also includes some usual inconsistent and mistake in v2 API that we want to fix in
+the future. Anyway most of API code structure looks like as below:</p>
 
 <div class='bogus-wrapper'><notextile><figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -209,7 +220,7 @@ Anyway most of api code structure looks like as below:</p>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<h2>Change the API with the method of v2 on v3 propose</h2>
+<h2>Change the API with the method in v2 on v3 propose</h2>
 
 <p>When we want to fix those inconsistent and other mistake (status code),
 we need write a translation-schema file (looks like json-schema).</p>
@@ -260,29 +271,32 @@ we need write a translation-schema file (looks like json-schema).</p>
 </span></code></pre></td></tr></table></div></figure></notextile></div>
 
 
-<p>Then before invoke the python code, the decorator &lsquo;v2_translate_body&rsquo; will translate
-the input as the old one that make the python code can read that request. Python code
+<p>Then before invoke API python code, the decorator &lsquo;v2_translate_body&rsquo; will translate
+the input as the old one that make the python code can understand the request. Python code
 always assume the user request is oldest format.</p>
+
+<p>There are two downside with this method:</p>
+
+<ul>
+<li><p>The implementation is complex</p>
 
 <p>Actually not only need translate the request body, also need translate the json-schema that
 used to validate the input with new format.</p>
 
-<p>When there are multiple version changes for the request format, the translation-schema is
-depend on one by one. That really make developer hard to figure out the exact request format
-for specified version.</p>
+<p>Not only &lsquo;rename_to&rsquo; instruct, also need &lsquo;move_to&rsquo; instruct for the case like scheduler_hints.
+(The scheduler_hint param is out of the server struct in the request, that is wrong.
+ <a href="https://github.com/openstack/nova/blob/master/doc/api_samples/OS-SCH-HNT/scheduler-hints-post-req.json">https://github.com/openstack/nova/blob/master/doc/api_samples/OS-SCH-HNT/scheduler-hints-post-req.json</a>)</p></li>
+<li><p>The multiple version json-schema is unreadable and hard to maintenance by dev</p>
 
-<p>This isn&rsquo;t the most complex example. For schedule_hint case, there also need translation
-instruct &lsquo;move_to&rsquo;. And also we have other way for distinguish the semantic change, it&rsquo;s
-also make the code hard to read. At least this is complex to implement in the infrastructure.
-We need implement those for this propose:</p>
-
-<ul>
-<li>Implement parse for tranlsation dict.</li>
-<li>Implement translation instruct &lsquo;rename_to&rsquo; and &lsquo;move_to&rsquo;.</li>
-<li>Not only implement translation for input, also for json-schema.</li>
-<li>Router to different function for distinguish different behavor for different version.</li>
+<p>When there already doing multiple version changes for the request format, the translation-schema is
+dependence on one by one. Except there is json-schema file for the oldest format, other version
+json-schema only can  get by translation. The dev is no way to get specified version json-schema,
+except they runing the code and print it out.</p></li>
 </ul>
 
+
+<p>And except the method input/output change, we also provide some magic for distinguish different semantic.
+(<a href="https://review.openstack.org/82301">https://review.openstack.org/82301</a>). But it also make the code hard to read.</p>
 
 <h2>The new method for support multiple version</h2>
 
