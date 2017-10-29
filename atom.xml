@@ -4,7 +4,7 @@
   <title><![CDATA[Alex Xu]]></title>
   <link href="http://soulxu.github.io/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2017-10-29T21:41:13+08:00</updated>
+  <updated>2017-10-29T21:51:08+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -14,7 +14,7 @@
 
   
   <entry>
-    <title type="html"><![CDATA[Some Ideas for Nova API in Kilo]]></title>
+    <title type="html"><![CDATA[Some ideas for Nova API in Kilo]]></title>
     <link href="http://soulxu.github.io/blog/2014/09/12/one-option-for-nova-api/"/>
     <updated>2014-09-12T12:37:17+08:00</updated>
     <id>http://soulxu.github.io/blog/2014/09/12/one-option-for-nova-api</id>
@@ -649,7 +649,7 @@ idea works later.</p>
   </entry>
   
   <entry>
-    <title type="html"><![CDATA[使用KVM API实现Emulator Demo]]></title>
+    <title type="html"><![CDATA[使用KVM API实现Emulator demo]]></title>
     <link href="http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator/"/>
     <updated>2014-08-11T11:06:38+08:00</updated>
     <id>http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator</id>
