@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[Category: virtualization | Alex Xu]]></title>
+  <title><![CDATA[Category: Virtualization | Alex Xu]]></title>
   <link href="http://soulxu.github.io/blog/categories/virtualization/atom.xml" rel="self"/>
   <link href="http://soulxu.github.io/"/>
-  <updated>2014-09-19T17:50:11+08:00</updated>
+  <updated>2017-10-29T20:42:50+08:00</updated>
   <id>http://soulxu.github.io/</id>
   <author>
     <name><![CDATA[Alex Xu (soulxu@gmail.com)]]></name>
@@ -14,7 +14,7 @@
 
   
   <entry>
-    <title type="html"><![CDATA[使用KVM API实现Emulator demo]]></title>
+    <title type="html"><![CDATA[使用KVM API实现Emulator Demo]]></title>
     <link href="http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator/"/>
     <updated>2014-08-11T11:06:38+08:00</updated>
     <id>http://soulxu.github.io/blog/2014/08/11/use-kvm-api-write-emulator</id>
